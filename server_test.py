@@ -3,7 +3,7 @@ import threading
 import os
 
 def Main():
-    host = '192.168.2.13'
+    host = '192.168.2.11'
     port = 5000
     s = socket.socket()
     s.bind((host,port))
