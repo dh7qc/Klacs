@@ -25,6 +25,7 @@ def receving(name, sock):
         try:
             while True:
                 data, addr = sock.recvfrom(4096)
+                print(data.decode('utf-8'))
                 dataDic = messages.JSONdict(data.decode('utf-8'))
                 if dataDic['flag'] == 0:
                     print ("\n~~~~~~~~(" + dataDic['time'] + ") " + dataDic['user'] + ": " + dataDic['message'] + '\n' + alias + "-> ", end='')
@@ -55,8 +56,8 @@ while True:
 #Handler to check correct hostname has been entered.
 while True:
     try:
-        serverIP = input("Enter the hostname of the server you would like to connect to-> ")        
-        server = (serverIP,5555)
+        serverIP = input("Enter the hostname of the server you would like to connect to-> ")
+        server = (serverIP,5000)
         s.connect(server)
         break
     except:
@@ -66,9 +67,26 @@ rT = threading.Thread(target=receving, args=("RecvThread",s))
 rT.start()
 
 alias = input("Name: ")
-send = messages.create_msg(alias,"has connected. ", 1)
-s.sendto(str.encode( send ) , server )
-message = input(alias + "-> ")
+ping = 'memes'
+s.sendto(str.encode(ping), server)
+time.sleep(1)
+register = '{"username":"' + alias + '", "action":"register", "data": { "password":"password", "IP":"' + host + '"}}'
+s.sendto(str.encode( register ) , server )
+time.sleep(1)
+login = '{"username":"' + alias + '", "action":"login", "data": { "password":"password", "IP":"' + host + '"}}'
+s.sendto(str.encode( login ), server)
+time.sleep(1)
+channel_name = input("Creat Channel:  ")
+create_chat = '{"username":"' + alias + '", "action":"create chat", "data": {"chat id":"'+channel_name+'", "invite only":"false", "anonymous":"false"}}'
+s.sendto(str.encode( create_chat ), server)
+time.sleep(1)
+join = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"'+channel_name+'" } }'
+s.sendto(str.encode( join ), server)
+time.sleep(1)
+message_text = input(alias + "-> ")
+post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+message_text+'", "date/time":"'+ time.ctime(time.time()) +'"}}'
+s.sendto(str.encode( post ), server)
+time.sleep(1)
 
 #Main loop used to send messages to the server.
 while message != '/exit' and message != '/quit' and message != '/part' and shutdown != True:
@@ -79,7 +97,7 @@ while message != '/exit' and message != '/quit' and message != '/part' and shutd
 
 send = messages.create_msg(alias,"has disconnected. ", 2)
 s.sendto(str.encode( send ) , server )
-    
+
 shutdown = True
 rT.join()
 s.close()
