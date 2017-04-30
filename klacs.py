@@ -46,12 +46,21 @@ class AppScreen(Frame):
         channelFrame.place(x = 20, y = 20)
         channelLabel = Label(channelFrame, text = "Rooms:")
         channelLabel.pack()
+        Lb = Listbox(channelFrame,selectmode="single")
+        Lb.pack()
+        Lb.insert(1, "default")
+        Lb.insert(2, "this_channel_doesnt_exist")
 
         userFrame = ttk.Frame(master)
         userFrame.config(width = 225, height = 330, relief = RIDGE)
         userFrame.place(x = 20, y = 370)
         userFrameLabel = Label(userFrame, text = "Active Users: ")
         userFrameLabel.pack()
+        
+        Lb2 = Listbox(userFrame,selectmode="single")
+        Lb2.pack()
+        Lb2.insert(1, "person1")
+        Lb2.insert(2, "otherperson")
 
         titleFrame = ttk.Frame(master)
         titleFrame.config(width = 600, height = 20, relief = RIDGE)
@@ -85,11 +94,17 @@ class AppScreen(Frame):
 
 
         serverStatusFrame = ttk.Frame(master)
-        serverStatusFrame.config(width = 175, height = 680, relief = RIDGE)
-        serverStatusFrame.place(x = 885, y = 20)
+        serverStatusFrame.config(width = 175, height = 680, relief = RIDGE) # was width = 175, height = 680
+        serverStatusFrame.place(x = 960, y = 30) # was x = 885, y = 20
         serverSatusLabel = Label(serverStatusFrame, text = "Server Status:")
         serverSatusLabel.pack()
         
+        status = StringVar()
+        serverStatus = Message(serverStatusFrame,textvariable=status, relief = SUNKEN)
+        serverStatus.pack()
+        status.set("Looks like the server might be up...")
+
+    # When the button is pushed to send a message.
     def on_send(self):
         # Send the message to the server.
         msg = self.messageEntryVar.get()
@@ -101,7 +116,8 @@ class AppScreen(Frame):
         self.chatMessages.insert(END, '\n> ' + alias + ': ' + msg)
         self.chatMessages.config(state = DISABLED)
         return
-        
+    
+    # This is what is updating the messages from the server. 
     def update_messages(self):
         self.chatMessages.config(state = NORMAL)
         try:
@@ -126,7 +142,7 @@ class AppScreen(Frame):
             
         self.chatMessages.config(state = DISABLED)
 
-        self.after(50, self.update_messages) # Recalls this function every 50ms
+        self.after(50, self.update_messages) # Re-calls this function every 50ms
         
         return
 
@@ -280,14 +296,14 @@ def main():
     try:
         create_chat = '{"username":"' + alias + '", "action":"create chat", "data": {"chat id":"'+channel_name+'", "invite only":"false", "anonymous":"false"}}'
         s.sendto(str.encode( create_chat ), server)
-        time.sleep(1)
+        time.sleep(.5)
     except:
         pass
 
     # Join default channel.
     j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"'+channel_name+'" } }'
     s.sendto(str.encode( j ), server)
-    time.sleep(1)
+    time.sleep(.5)
     '''
     # Start thread for receiving messages... might have to put this before run_login to check if we are getting messages saying we actually signed in successfully.
     rT = threading.Thread(target=receving, args=("RecvThread",s))

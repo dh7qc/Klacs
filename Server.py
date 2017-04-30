@@ -74,6 +74,13 @@ class Server:
             # Print to console 'username' is attempting to post a message to a channel
             if Server.postMessage(self, data=d2) :
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=True, response=d2['username']+ ' successfully posted to '+d2['data']['chat id']+'.')
+                
+                # Channel 
+                key = d2['data']['chat id']
+                for u in self.channels[key].users:
+                    if u != d2['username']:
+                        # '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
+                        Server.server_i.sendto(str.encode('{"username":"' + d2['username'] + '", "action":"post", "data": { "chat id":"'+key+'", "message":"'+ d2['data']['message'] +'", "date/time":"'+ time.ctime(time.time()) +'"}}'), self.channels[key].users[u])
                 # Print to console 'username' has successfully posted to 'chat ID'.
             else:
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=False, response=d2['username'] + ' failed to post to '+d2['data']['chat id']+'.')
@@ -88,7 +95,7 @@ class Server:
                 # Print to console 'username' has failed to join 'chat ID'.
         elif d2['action'] == 'create chat':
             # Print to console 'username' is attempting to create 'chat ID'.
-            if Server.createChannel(self, data=d2) :
+            if Server.createChannel(self, data=d2, addr=addr):
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=True, response=d2['username']+ ' successfully  created '+d2['data']['chat id']+'.')
                 # Print to console 'username' has successfully created 'chat ID'.
             else:
@@ -149,20 +156,19 @@ class Server:
     def userJoinChannel(self, data, addr):  # Should return true or false accordingly
         temp = data['data']
         key = temp['chat id']
-        addr = addr
+        user = data['username']
         if key in self.channels:
-            print(str(self.channels[key].users[data['username']]))
-            self.channels[key].users[data['username']] = addr
+            self.channels[key].users[user] = addr
             return True
         else:
             return False
 
 
-    def createChannel(self, data): # Should return true or false accordingly
+    def createChannel(self, data, addr): # Should return true or false accordingly
         temp = data['data']
         key = temp['chat id']
         if key not in self.channels:
-            self.channels[key] = Channel(Server.server_i, data['data']['chat id'], data['username'])
+            self.channels[key] = Channel(Server.server_i, data['data']['chat id'], {data['username']: addr})
             Channel.assignAdmin(self.channels[key], data['username'])
             print(self.channels)
             return True
