@@ -12,7 +12,7 @@ tLock = threading.Lock()
 # Variables
 logged_in = False
 shutdown = False
-serverIP = '192.168.147.1'
+serverIP = '192.168.1.57'
 channel_name = 'default'
 host = '0.0.0.0'
 port = 0
@@ -86,8 +86,8 @@ class AppScreen(Frame):
         messageFrame.config(width = 600, height = 20, relief = RIDGE)
         messageFrame.place(x = 265, y = 673)
         self.messageEntryVar = StringVar()
-        messageEntry = Entry(messageFrame, textvariable = self.messageEntryVar, width = 64)
-        messageEntry.pack(side = LEFT)
+        self.messageEntry = Entry(messageFrame, textvariable = self.messageEntryVar, width = 64)
+        self.messageEntry.pack(side = LEFT)
 
         messageSendButton = Button(messageFrame, text = "Meme It", command=self.on_send)
         messageSendButton.pack(side = RIGHT)
@@ -108,13 +108,14 @@ class AppScreen(Frame):
     def on_send(self):
         # Send the message to the server.
         msg = self.messageEntryVar.get()
-        post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
-        s.sendto(str.encode( post ), server)
-
-        # Update the gui. 
-        self.chatMessages.config(state = NORMAL)
-        self.chatMessages.insert(END, '\n> ' + alias + ': ' + msg)
-        self.chatMessages.config(state = DISABLED)
+        if len(msg) > 0:
+            post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
+            s.sendto(str.encode( post ), server)
+            self.messageEntry.delete(0, END)
+            # Update the gui. 
+            self.chatMessages.config(state = NORMAL)
+            self.chatMessages.insert(END, '\n> ' + alias + ': ' + msg)
+            self.chatMessages.config(state = DISABLED)
         return
     
     # This is what is updating the messages from the server. 
