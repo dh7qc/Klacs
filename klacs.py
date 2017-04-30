@@ -34,11 +34,19 @@ class AppScreen(Frame):
         y = (heightOfScreen/2) - (height/2)
         # set the dimensions of the screen
         master.geometry('%dx%d+%d+%d' % (widthOfScreen, heightOfScreen, x, y-50))
-
+        self.master.protocol('WM_DELETE_WINDOW', self.leave)
         self.createFrames(master)
         self.update_messages()
         
         return
+    
+    # Do whatever it is you need to do when the user leaves the room. 
+    def leave(self):
+        # * send message saying user is leaving ? or send quit command to server?* 
+        
+        # Close port, destroy window.
+        s.close()
+        self.master.destroy()
 
     def createFrames(self, master = None):
         channelFrame = Frame(master)
@@ -212,6 +220,9 @@ class Login(Frame):
         # Disable register/signin buttons after registering... should probably check that they actually registered.
         self.loginButton.config(state = DISABLED)
         self.registerButton.config(state = DISABLED)
+        
+        # Destroy login window in order to go to chat window
+        self.master.destroy()
         return
         
     def on_login(self):
@@ -224,6 +235,8 @@ class Login(Frame):
         # Disable register/signin buttons after logging in... should probably check that the user was actually able to login. 
         self.loginButton.config(state = DISABLED)
         self.registerButton.config(state = DISABLED)
+        # Destroy login window in order to go to chat window
+        self.master.destroy()
         return
         
 def run_login():

@@ -6,5 +6,5 @@ run klacs.py
 
 enter username / passsword and enter
 
-press x to close login frame
+should transition automatically to chat screen
 
