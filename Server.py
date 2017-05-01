@@ -15,12 +15,14 @@ class Server:
     # Member Variables
     m_port = 5000
     m_host = socket.gethostbyname(socket.gethostname())
-    userDatabase = {} # username, password database
-    clients = []
-    channels = {}
-    buffer = 1024
     # Open the socket
     server_i = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    userDatabase = {'Brendan_Admin':'password'} # username, password database
+    clients = []
+    channels = {'General':Channel(server_i, 'General', users=None)}
+    channels['General'].assignAdmin('Brendan_Admin')
+    buffer = 1024
+
     # JSON template
     result = '{"username": "", "action": "result", "data": { "success_flag": "", "response": ""} }'
 
@@ -52,6 +54,7 @@ class Server:
         addr = Server.clients[i]
         d1 = data.decode('utf-8')
         if d1 == 'q':
+            Server.server_i.close()
             os._exit(0)
         d2 = json.loads(d1)
         if d2['action'] == 'login' :
@@ -74,14 +77,15 @@ class Server:
             # Print to console 'username' is attempting to post a message to a channel
             if Server.postMessage(self, data=d2) :
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=True, response=d2['username']+ ' successfully posted to '+d2['data']['chat id']+'.')
-                
-                # Channel 
+                # Print to console 'username' has successfully posted to 'chat ID'.
+
+                # Sends the message that was just successfully received back to everyone in that channel.
                 key = d2['data']['chat id']
                 for u in self.channels[key].users:
+                    print("in for loop")
                     if u != d2['username']:
                         # '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
                         Server.server_i.sendto(str.encode('{"username":"' + d2['username'] + '", "action":"post", "data": { "chat id":"'+key+'", "message":"'+ d2['data']['message'] +'", "date/time":"'+ time.ctime(time.time()) +'"}}'), self.channels[key].users[u])
-                # Print to console 'username' has successfully posted to 'chat ID'.
             else:
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=False, response=d2['username'] + ' failed to post to '+d2['data']['chat id']+'.')
                 # Print to console 'username' has failed to post to 'chat ID'.
@@ -95,7 +99,7 @@ class Server:
                 # Print to console 'username' has failed to join 'chat ID'.
         elif d2['action'] == 'create chat':
             # Print to console 'username' is attempting to create 'chat ID'.
-            if Server.createChannel(self, data=d2, addr=addr):
+            if Server.createChannel(self, data=d2, addr=addr) :
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=True, response=d2['username']+ ' successfully  created '+d2['data']['chat id']+'.')
                 # Print to console 'username' has successfully created 'chat ID'.
             else:
@@ -117,6 +121,22 @@ class Server:
             else:
                 Server.sendResult(self, conn=addr, username=d2['username'], successFL=False, response=d2['username'] + ' failed to ban ' + d2['data']['targetUser'] + ' from ' + d2['data']['chat id'] + '.')
                 # Print to console 'username' has failed to ban 'targetUser' from 'chat ID'.
+        elif d2['action'] == 'request chat ids':
+            # add all chat ids to a string and send to the client
+            chat_ids = ''
+            for j in self.channels:
+                chat_ids += self.channels[j].id
+                chat_ids += ', '
+            request_chat = '{"username":"' + d2['username'] + '", "action":"request chat ids", "data": {"response":"' + chat_ids + '"}}'
+            Server.server_i.sendto(str.encode(request_chat), addr)
+        elif d2['action'] == 'request user ids':
+            # add all chat ids to a string and send to the client
+            user_ids = ''
+            for j in self.userDatabase:
+                user_ids += str(j)
+                user_ids += ', '
+            request_users = '{"username":"' + d2['username'] + '", "action":"request user ids", "data": {"response":"' + user_ids + '"}}'
+            Server.server_i.sendto(str.encode(request_users), addr)
 
 
     def sendResult(self, conn, username, successFL, response):
@@ -156,9 +176,9 @@ class Server:
     def userJoinChannel(self, data, addr):  # Should return true or false accordingly
         temp = data['data']
         key = temp['chat id']
-        user = data['username']
+        print(addr)
         if key in self.channels:
-            self.channels[key].users[user] = addr
+            self.channels[key].users[data['username']] = addr
             return True
         else:
             return False
@@ -168,7 +188,7 @@ class Server:
         temp = data['data']
         key = temp['chat id']
         if key not in self.channels:
-            self.channels[key] = Channel(Server.server_i, data['data']['chat id'], {data['username']: addr})
+            self.channels[key] = Channel(Server.server_i, data['data']['chat id'], {data['username'], addr})
             Channel.assignAdmin(self.channels[key], data['username'])
             print(self.channels)
             return True

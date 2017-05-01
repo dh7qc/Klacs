@@ -13,7 +13,6 @@ tLock = threading.Lock()
 logged_in = False
 shutdown = False
 serverIP = '192.168.1.57'
-channel_name = 'default'
 host = '0.0.0.0'
 port = 0
 
@@ -305,24 +304,19 @@ def main():
     # Now logged in. Create thread for chat.
     run_chat_thread = threading.Thread(target=run_app)
     run_chat_thread.start()
-    
-    # Create a default channel
-    try:
-        create_chat = '{"username":"' + alias + '", "action":"create chat", "data": {"chat id":"'+channel_name+'", "invite only":"false", "anonymous":"false"}}'
-        s.sendto(str.encode( create_chat ), server)
-        time.sleep(.5)
-    except:
-        pass
 
     # Join default channel.
-    j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"'+channel_name+'" } }'
+    global channel_name
+    channel_name = 'General'
+    j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"' + channel_name + '" } }'
     s.sendto(str.encode( j ), server)
-    time.sleep(.5)
-    '''
-    # Start thread for receiving messages... might have to put this before run_login to check if we are getting messages saying we actually signed in successfully.
-    rT = threading.Thread(target=receving, args=("RecvThread",s))
-    rT.start()
-    '''
-            
+    time.sleep(.2)
+    
+    # Send message saying that I joined default channel...
+    post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"* Entered the chatroom *", "date/time":"'+ time.ctime(time.time()) +'"}}'
+    s.sendto(str.encode( post ), server)
+    
+
+# * Main runs here *             
 if __name__ == "__main__":
     main()
