@@ -35,6 +35,9 @@ class AppScreen(Frame):
         master.geometry('%dx%d+%d+%d' % (widthOfScreen, heightOfScreen, x, y-50))
         self.master.protocol('WM_DELETE_WINDOW', self.leave)
         self.createFrames(master)
+        
+        self.update_channels()
+        self.update_users()
         self.update_messages()
         
         return
@@ -53,10 +56,9 @@ class AppScreen(Frame):
         channelFrame.place(x = 20, y = 20)
         channelLabel = Label(channelFrame, text = "Rooms:")
         channelLabel.pack()
-        Lb = Listbox(channelFrame,selectmode="single")
-        Lb.pack()
-        Lb.insert(1, "default")
-        Lb.insert(2, "this_channel_doesnt_exist")
+        self.Lb = Listbox(channelFrame,selectmode="single")
+        self.Lb.pack()
+        self.Lb.insert(1, "General")
 
         userFrame = ttk.Frame(master)
         userFrame.config(width = 225, height = 330, relief = RIDGE)
@@ -64,10 +66,10 @@ class AppScreen(Frame):
         userFrameLabel = Label(userFrame, text = "Active Users: ")
         userFrameLabel.pack()
         
-        Lb2 = Listbox(userFrame,selectmode="single")
-        Lb2.pack()
-        Lb2.insert(1, "person1")
-        Lb2.insert(2, "otherperson")
+        self.Lb2 = Listbox(userFrame,selectmode="single")
+        self.Lb2.pack()
+        #self.Lb2.insert(1, "person1")
+        #self.Lb2.insert(2, "otherperson")
 
         titleFrame = ttk.Frame(master)
         titleFrame.config(width = 600, height = 20, relief = RIDGE)
@@ -128,31 +130,45 @@ class AppScreen(Frame):
     # This is what is updating the messages from the server. 
     def update_messages(self):
         self.chatMessages.config(state = NORMAL)
+        
         try:
             data, addr = s.recvfrom(4096)
             #self.chatMessages.insert(END, '\n' + data.decode('utf-8')) # print(data.decode('utf-8'))
             dataDic = messages.json_str_to_dict(data.decode('utf-8'))
-            self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['message'])
-            ''''
-            if dataDic['flag'] == 0:
-                #self.chatMessages.insert(END,("\n~~~~~~~~(" + dataDic['time'] + ") " + dataDic['user'] + ": " + dataDic['message'] + '\n' + alias + "-> "))
+
+            if 'message' in dataDic['data']:
+                self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['message'])
+            elif 'response' in dataDic['data'] and 'posted' not in dataDic['data']['response']:
+                #self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['response'])
                 pass
-            elif dataDic['flag'] == 1 or dataDic['flag'] == 2:
-                #self.chatMessages.insert(END,("\n@@@@@@@@("  + dataDic['user'] + ") " + dataDic['message'] + '\n' + alias + "-> "))
-                pass
-            elif dataDic['flag'] == 3:
-                #self.chatMessages.insert(END, ("\n(ALERT!) "  + dataDic['message'] + " (ALERT!)"  + '\n' + alias + "-> "))
-                time.sleep(.5)
-                print ("\n(ALERT!) DISCONNECTED FROM SERVER, PRESS ENTER TO EXIT (ALERT!)")
-                '''
+            
         except:
             pass
             
         self.chatMessages.config(state = DISABLED)
 
-        self.after(50, self.update_messages) # Re-calls this function every 50ms
+        self.after(30, self.update_messages) # Re-calls this function every 50ms
         
         return
+        
+    def update_channels(self):
+        
+        # * do stuff here to update channels list * 
+        # self.Lb(i, channel[i]) etc 
+        #
+        #
+        
+        # Updates channels list every 15 seconds
+        self.after(15000, self.update_channels)
+        
+    def update_users(self):
+        #self.Lb2.insert(1, "person1")
+        
+        request_users = '{"username":"' + alias + '", "action":"request chat ids", "data": {"response":""}}'
+        s.sendto(str.encode( request_users ), server)
+        
+        # Updates users list every 2 seconds. 
+        self.after(3000, self.update_users)
 
 class Login(Frame):
     def __init__(self, master = None):
