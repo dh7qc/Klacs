@@ -1,12 +1,11 @@
 from tkinter import *
 from tkinter import ttk
+from copy import deepcopy
 import socket
 import threading
 import time
 import messages
 import signal
-from copy import deepcopy
-import webbrowser
 import sys
 tLock = threading.Lock()
 
@@ -14,7 +13,7 @@ tLock = threading.Lock()
 logged_in = False
 shutdown = False
 current_channel = ['General']
-serverIP = '192.168.147.1'
+serverIP = '192.168.1.57'
 host = '0.0.0.0'
 port = 0
 
@@ -25,7 +24,6 @@ class AppScreen(Frame):
         self.master.resizable(width=False, height=False)
         width = 1080
         height = 720
-        self.link = ''
         self.master.minsize(width,height) #lock login screen to dimensions
         self.master.maxsize(width,height)
         widthOfScreen = master.winfo_screenwidth() # width of the screen
@@ -39,20 +37,19 @@ class AppScreen(Frame):
         self.master.protocol('WM_DELETE_WINDOW', self.leave)
         self.createFrames(master)
         
+        # Initial call of functions that are called periodically to update stuff.
         self.update_channels()
         self.update_users()
         self.update_messages()
-        
         return
     
     # Do whatever it is you need to do when the user leaves the room. 
     def leave(self):
-        # * send message saying user is leaving ? or send quit command to server?* 
-        
         # Close port, destroy window.
         s.close()
         self.master.destroy()
-
+        return
+        
     def createFrames(self, master = None):
         channelFrame = Frame(master)
         channelFrame.config(width = 225, height = 330, relief = RIDGE)
@@ -61,6 +58,7 @@ class AppScreen(Frame):
         channelLabel.pack()
         self.Lb = Listbox(channelFrame,selectmode="single")
         self.Lb.pack()
+        self.Lb.bind('<<ListboxSelect>>', self.on_select)
         #self.Lb.insert(1, "General")
 
         userFrame = ttk.Frame(master)
@@ -71,8 +69,6 @@ class AppScreen(Frame):
         
         self.Lb2 = Listbox(userFrame,selectmode="single")
         self.Lb2.pack()
-        #self.Lb2.insert(1, "person1")
-        #self.Lb2.insert(2, "otherperson")
 
         titleFrame = ttk.Frame(master)
         titleFrame.config(width = 600, height = 20, relief = RIDGE)
@@ -89,10 +85,9 @@ class AppScreen(Frame):
         S = Scrollbar(chatFrame)
         S.pack(side=RIGHT,fill=Y)
         S.config(command=self.chatMessages.yview)
-        self.chatMessages.config(yscrollcommand=S.set)
-        
-        #self.chatMessages.insert(END, "hello \n \n \n \n b  heyyyy")
+        self.chatMessages.config(yscrollcommand=S.set) 
         self.chatMessages.config(state = DISABLED)
+        
         
         messageFrame = ttk.Frame(master)
         messageFrame.config(width = 600, height = 20, relief = RIDGE)
@@ -115,7 +110,7 @@ class AppScreen(Frame):
         serverStatus = Message(serverStatusFrame,textvariable=status, relief = SUNKEN)
         serverStatus.pack()
         status.set("Looks like the server might be up...")
-
+        
     # When the button is pushed to send a message.
     def on_send(self):
         # Send the message to the server.
@@ -133,24 +128,46 @@ class AppScreen(Frame):
             elif '/join' in msg:
                 join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+msg[6:]+'"}}'
                 s.sendto(str.encode( join_channel ), server)
-                current_channel[0] = msg[6:]
+                current_channel[0] = msg[7:]
                 self.chatMessages.config(state = NORMAL)
                 self.chatMessages.delete(1.0, END)
                 self.chatMessages.config(state = DISABLED)
-               
-                
-                
+  
             elif '/help' in msg:
                 pass
                 
             self.messageEntry.delete(0, END)
         return
+   
+    # This function is called when a channel is selected from the channels list. 
+    def on_select(self,evt):
+        w = evt.widget
+        index = int(w.curselection()[0])
+        value = w.get(index)
         
+        # Make sure this only works if they click on a channel and not an empty space.
+        if len(value) > 0:
+            # Send request to join channel.
+            join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+value+'"}}'
+            s.sendto(str.encode( join_channel ), server)
+            
+            # Assume we are able to join the channel, update current channel value. 
+            current_channel[0] = value
+            
+            # Clear existing messages from text widget.
+            self.chatMessages.config(state = NORMAL)
+            self.chatMessages.delete(1.0, END)
+            self.chatMessages.config(state = DISABLED)
+            
+            #self.request_archive()
+        return
     
     # This is what is updating the messages from the server. 
     def update_messages(self):
+        # Enable chat text widget so it can be modified.
         self.chatMessages.config(state = NORMAL)
         
+        # Attempt to received data from server.
         try:
             data, addr = s.recvfrom(4096)
             #self.chatMessages.insert(END, '\n' + data.decode('utf-8')) # print(data.decode('utf-8'))
@@ -158,56 +175,53 @@ class AppScreen(Frame):
 
             if dataDic['action'] == 'post':
                 self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['message'])
-            #elif 'response' in dataDic['data'] and 'posted' not in dataDic['data']['response']:
-            #    #self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['response'])
-            #    pass
+
             elif dataDic['action'] == 'request chat ids':
-                lst = dataDic['data']['response'].split(',')
+                lst = dataDic['data']['response'].split(', ')
                 lst = lst[:len(lst)]
-                #self.chatMessages.config(state = NORMAL)
-                #self.chatMessages.insert(END, str(lst))
-                #self.chatMessages.config(state = DISABLED)
+                
                 self.Lb.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb.insert(i, lst[i])
                     
             elif dataDic['action'] == 'request user ids':
-                lst = dataDic['data']['response'].split(',')
+                lst = dataDic['data']['response'].split(', ')
                 lst = lst[:len(lst)]
                 
                 self.Lb2.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb2.insert(i, lst[i])
-            
         except:
             pass
-            
+        
+        # Disable chat text widget.
         self.chatMessages.config(state = DISABLED)
 
-        self.after(30, self.update_messages) # Re-calls this function every 50ms
-        
-        return
+        # Re-calls this function every 30ms
+        self.after(30, self.update_messages) 
+        return   
         
     def update_channels(self):
-        
-        # * do stuff here to update channels list * 
-        # self.Lb(i, channel[i]) etc 
-
-        #request chat ids
+        # send request to server for chat ids
         request_chat = '{"username":"' + alias + '", "action":"request chat ids", "data": {"response":""}}'
         s.sendto(str.encode( request_chat ), server)
         
-        # Updates channels list every 15 seconds
+        # Updates channels list every 2 seconds
         self.after(2000, self.update_channels)
         
     def update_users(self):
-        #self.Lb2.insert(1, "person1")
-        
+        # send request to server for user ids
         request_users = '{"username":"' + alias + '", "action":"request user ids", "data": {"response":""}}'
         s.sendto(str.encode( request_users ), server)
         
-        # Updates users list every 2 seconds. 
+        # Updates users list every 3 seconds. 
         self.after(3000, self.update_users)
+        
+    def request_archive(self):
+        #request archive
+        req_archive = '{"username":"' + alias + '", "action":"request archive", "data": {"response":""}}'
+        s.sendto(str.encode( req_archive ), server)
+        return
 
 class Login(Frame):
     def __init__(self, master = None):
