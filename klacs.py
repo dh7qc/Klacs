@@ -6,13 +6,15 @@ import time
 import messages
 import signal
 from copy import deepcopy
+import webbrowser
 import sys
 tLock = threading.Lock()
 
 # Variables
 logged_in = False
 shutdown = False
-serverIP = '192.168.1.57'
+current_channel = ['General']
+serverIP = '192.168.147.1'
 host = '0.0.0.0'
 port = 0
 
@@ -23,6 +25,7 @@ class AppScreen(Frame):
         self.master.resizable(width=False, height=False)
         width = 1080
         height = 720
+        self.link = ''
         self.master.minsize(width,height) #lock login screen to dimensions
         self.master.maxsize(width,height)
         widthOfScreen = master.winfo_screenwidth() # width of the screen
@@ -58,7 +61,7 @@ class AppScreen(Frame):
         channelLabel.pack()
         self.Lb = Listbox(channelFrame,selectmode="single")
         self.Lb.pack()
-        self.Lb.insert(1, "General")
+        #self.Lb.insert(1, "General")
 
         userFrame = ttk.Frame(master)
         userFrame.config(width = 225, height = 330, relief = RIDGE)
@@ -116,16 +119,33 @@ class AppScreen(Frame):
     # When the button is pushed to send a message.
     def on_send(self):
         # Send the message to the server.
+        
         msg = self.messageEntryVar.get()
         if len(msg) > 0:
-            post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
-            s.sendto(str.encode( post ), server)
+            if msg[0] != '/':
+                post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+current_channel[0]+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
+                s.sendto(str.encode( post ), server)
+                
+            elif '/create' in msg: # /create 
+                create_channel = '{"username":"'+alias+'", "action":"create chat", "data": {"chat id":"'+msg[8:]+'", "invite only":"false", "anonymous":"false"}}'
+                s.sendto(str.encode( create_channel ), server)
+                
+            elif '/join' in msg:
+                join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+msg[6:]+'"}}'
+                s.sendto(str.encode( join_channel ), server)
+                current_channel[0] = msg[6:]
+                self.chatMessages.config(state = NORMAL)
+                self.chatMessages.delete(1.0, END)
+                self.chatMessages.config(state = DISABLED)
+               
+                
+                
+            elif '/help' in msg:
+                pass
+                
             self.messageEntry.delete(0, END)
-            # Update the gui. 
-            self.chatMessages.config(state = NORMAL)
-            self.chatMessages.insert(END, '\n> ' + alias + ': ' + msg)
-            self.chatMessages.config(state = DISABLED)
         return
+        
     
     # This is what is updating the messages from the server. 
     def update_messages(self):
@@ -136,11 +156,28 @@ class AppScreen(Frame):
             #self.chatMessages.insert(END, '\n' + data.decode('utf-8')) # print(data.decode('utf-8'))
             dataDic = messages.json_str_to_dict(data.decode('utf-8'))
 
-            if 'message' in dataDic['data']:
-                self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['message'])
-            elif 'response' in dataDic['data'] and 'posted' not in dataDic['data']['response']:
-                #self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['response'])
-                pass
+            if dataDic['action'] == 'post':
+                self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['message'])
+            #elif 'response' in dataDic['data'] and 'posted' not in dataDic['data']['response']:
+            #    #self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['data']['response'])
+            #    pass
+            elif dataDic['action'] == 'request chat ids':
+                lst = dataDic['data']['response'].split(',')
+                lst = lst[:len(lst)]
+                #self.chatMessages.config(state = NORMAL)
+                #self.chatMessages.insert(END, str(lst))
+                #self.chatMessages.config(state = DISABLED)
+                self.Lb.delete(0,END)
+                for i in range(len(lst)):
+                    self.Lb.insert(i, lst[i])
+                    
+            elif dataDic['action'] == 'request user ids':
+                lst = dataDic['data']['response'].split(',')
+                lst = lst[:len(lst)]
+                
+                self.Lb2.delete(0,END)
+                for i in range(len(lst)):
+                    self.Lb2.insert(i, lst[i])
             
         except:
             pass
@@ -155,16 +192,18 @@ class AppScreen(Frame):
         
         # * do stuff here to update channels list * 
         # self.Lb(i, channel[i]) etc 
-        #
-        #
+
+        #request chat ids
+        request_chat = '{"username":"' + alias + '", "action":"request chat ids", "data": {"response":""}}'
+        s.sendto(str.encode( request_chat ), server)
         
         # Updates channels list every 15 seconds
-        self.after(15000, self.update_channels)
+        self.after(2000, self.update_channels)
         
     def update_users(self):
         #self.Lb2.insert(1, "person1")
         
-        request_users = '{"username":"' + alias + '", "action":"request chat ids", "data": {"response":""}}'
+        request_users = '{"username":"' + alias + '", "action":"request user ids", "data": {"response":""}}'
         s.sendto(str.encode( request_users ), server)
         
         # Updates users list every 2 seconds. 
@@ -322,14 +361,13 @@ def main():
     run_chat_thread.start()
 
     # Join default channel.
-    global channel_name
-    channel_name = 'General'
-    j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"' + channel_name + '" } }'
+
+    j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"General" } }'
     s.sendto(str.encode( j ), server)
     time.sleep(.2)
     
     # Send message saying that I joined default channel...
-    post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+channel_name+'", "message":"* Entered the chatroom *", "date/time":"'+ time.ctime(time.time()) +'"}}'
+    post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"General", "message":"* Entered the chatroom *", "date/time":"'+ time.ctime(time.time()) +'"}}'
     s.sendto(str.encode( post ), server)
     
 
