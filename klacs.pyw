@@ -13,7 +13,7 @@ tLock = threading.Lock()
 logged_in = False
 shutdown = False
 current_channel = ['General']
-serverIP = '192.168.1.57'
+serverIP = '10.106.57.153'
 host = '0.0.0.0'
 port = 0
 
@@ -36,21 +36,21 @@ class AppScreen(Frame):
         master.geometry('%dx%d+%d+%d' % (widthOfScreen, heightOfScreen, x, y-50))
         self.master.protocol('WM_DELETE_WINDOW', self.leave)
         self.createFrames(master)
-        
+
         # Initial call of functions that are called periodically to update stuff.
         self.update_channels()
         self.update_users()
         self.request_archive()
         self.update_messages()
         return
-    
-    # Do whatever it is you need to do when the user leaves the room. 
+
+    # Do whatever it is you need to do when the user leaves the room.
     def leave(self):
         # Close port, destroy window.
         s.close()
         self.master.destroy()
         return
-        
+
     def createFrames(self, master = None):
         channelFrame = Frame(master)
         channelFrame.config(width = 225, height = 330, relief = RIDGE)
@@ -67,7 +67,7 @@ class AppScreen(Frame):
         userFrame.place(x = 20, y = 370)
         userFrameLabel = Label(userFrame, text = "Active Users: ")
         userFrameLabel.pack()
-        
+
         self.Lb2 = Listbox(userFrame,selectmode="single")
         self.Lb2.pack()
 
@@ -86,10 +86,10 @@ class AppScreen(Frame):
         S = Scrollbar(chatFrame)
         S.pack(side=RIGHT,fill=Y)
         S.config(command=self.chatMessages.yview)
-        self.chatMessages.config(yscrollcommand=S.set) 
+        self.chatMessages.config(yscrollcommand=S.set)
         self.chatMessages.config(state = DISABLED)
-        
-        
+
+
         messageFrame = ttk.Frame(master)
         messageFrame.config(width = 600, height = 20, relief = RIDGE)
         messageFrame.place(x = 265, y = 673)
@@ -102,30 +102,35 @@ class AppScreen(Frame):
 
 
         serverStatusFrame = ttk.Frame(master)
-        serverStatusFrame.config(width = 175, height = 680, relief = RIDGE) # was width = 175, height = 680
+        serverStatusFrame.config(width = 175, height = 500, relief = RIDGE) # was width = 175, height = 680
         serverStatusFrame.place(x = 960, y = 30) # was x = 885, y = 20
         serverSatusLabel = Label(serverStatusFrame, text = "Server Status:")
         serverSatusLabel.pack()
-        
+
+        backgroundLoginImage = PhotoImage(file = 'klacs-logo-transparent.gif')
+        backgroundLabel = Label(self.master, image = backgroundLoginImage)
+        backgroundLabel.image = backgroundLoginImage
+        backgroundLabel.place(x=710, y=565)
+
         status = StringVar()
         serverStatus = Message(serverStatusFrame,textvariable=status, relief = SUNKEN)
         serverStatus.pack()
         status.set("Looks like the server might be up...")
-        
+
     # When the button is pushed to send a message.
     def on_send(self):
         # Send the message to the server.
-        
+
         msg = self.messageEntryVar.get()
         if len(msg) > 0:
             if msg[0] != '/':
                 post = '{"username":"' + alias + '", "action":"post","data":{"chat id":"'+current_channel[0]+'","message":"'+ msg +'","date/time":"'+ time.ctime(time.time()) +'"}}'
                 s.sendto(str.encode( post ), server)
-                
-            elif '/create' in msg: # /create 
+
+            elif '/create' in msg: # /create
                 create_channel = '{"username":"'+alias+'", "action":"create chat", "data": {"chat id":"'+msg[8:]+'", "invite only":"false", "anonymous":"false"}}'
                 s.sendto(str.encode( create_channel ), server)
-                
+
             elif '/join' in msg and msg[6:] != current_channel[0]:
                 join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+msg[6:]+'"}}'
                 s.sendto(str.encode( join_channel ), server)
@@ -134,41 +139,41 @@ class AppScreen(Frame):
                 self.chatMessages.delete(1.0, END)
                 self.chatMessages.config(state = DISABLED)
                 self.request_archive()
-  
+
             elif '/help' in msg:
                 pass
-                
+
             self.messageEntry.delete(0, END)
         return
-   
-    # This function is called when a channel is selected from the channels list. 
+
+    # This function is called when a channel is selected from the channels list.
     def on_select(self,evt):
         w = evt.widget
         index = int(w.curselection()[0])
         value = w.get(index)
-        
+
         # Make sure this only works if they click on a channel and not an empty space.
         if len(value) > 0 and value != current_channel[0]:
             # Send request to join channel.
             join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+value+'"}}'
             s.sendto(str.encode( join_channel ), server)
-            
-            # Assume we are able to join the channel, update current channel value. 
+
+            # Assume we are able to join the channel, update current channel value.
             current_channel[0] = value
-            
+
             # Clear existing messages from text widget.
             self.chatMessages.config(state = NORMAL)
             self.chatMessages.delete(1.0, END)
             self.chatMessages.config(state = DISABLED)
-            
+
             self.request_archive()
         return
-    
-    # This is what is updating the messages from the server. 
+
+    # This is what is updating the messages from the server.
     def update_messages(self):
         # Enable chat text widget so it can be modified.
         self.chatMessages.config(state = NORMAL)
-        
+
         # Attempt to received data from server.
         try:
             data, addr = s.recvfrom(4096)
@@ -181,51 +186,51 @@ class AppScreen(Frame):
             elif dataDic['action'] == 'request chat ids':
                 lst = dataDic['data']['response'].split(', ')
                 lst = lst[:len(lst)]
-                
+
                 self.Lb.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb.insert(i, lst[i])
-            
+
             elif dataDic['action'] == 'request user ids':
                 lst = dataDic['data']['response'].split(', ')
                 lst = lst[:len(lst)]
-                
+
                 self.Lb2.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb2.insert(i, lst[i])
-                    
+
             elif dataDic['action'] == 'request archive':
                 lst = dataDic['data']['response'].split('; ')
                 for item in lst:
                     if item[0] != ' ':
                         self.chatMessages.insert(END, '> ' + item[item.find(':',18)+2:] + '\n')
-                    
+
         except:
             pass
-        
+
         # Disable chat text widget.
         self.chatMessages.config(state = DISABLED)
 
         # Re-calls this function every 30ms
-        self.after(30, self.update_messages) 
-        return   
-        
+        self.after(30, self.update_messages)
+        return
+
     def update_channels(self):
         # send request to server for chat ids
         request_chat = '{"username":"' + alias + '", "action":"request chat ids", "data": {"response":""}}'
         s.sendto(str.encode( request_chat ), server)
-        
+
         # Updates channels list every 2 seconds
         self.after(2000, self.update_channels)
-        
+
     def update_users(self):
         # send request to server for user ids
         request_users = '{"username":"' + alias + '", "action":"request user ids", "data": {"response":""}}'
         s.sendto(str.encode( request_users ), server)
-        
-        # Updates users list every 3 seconds. 
+
+        # Updates users list every 3 seconds.
         self.after(3000, self.update_users)
-        
+
     def request_archive(self):
         #request archive
         req_archive = '{"username":"' + alias + '", "action":"request archive", "data": {"chat id":"'+current_channel[0]+'","response":""}}'
@@ -281,9 +286,9 @@ class Login(Frame):
         self.loginButton.place(x = 90, y = 245)
 
         self.registerButton = Button(self.master, text = "Register", command=self.on_register)
-        self.registerButton.pack()        
+        self.registerButton.pack()
         self.registerButton.place( x = 180, y = 245)
-        
+
     def on_register(self):
         # Register and login when register button is pressed.
         global alias
@@ -293,35 +298,35 @@ class Login(Frame):
         # Login after registration
         log = '{"username":"' + self.userNameVar.get() + '", "action":"login", "data": { "password":"' + self.passNameVar.get() + '", "IP":"' + host + '"}}'
         s.sendto(str.encode( log ), server)
-        
+
         # Disable register/signin buttons after registering... should probably check that they actually registered.
         self.loginButton.config(state = DISABLED)
         self.registerButton.config(state = DISABLED)
-        
+
         # Destroy login window in order to go to chat window
         self.master.destroy()
         return
-        
+
     def on_login(self):
         # Login when login button is pressed.
         global alias
         alias = deepcopy(self.userNameVar.get())
         log = '{"username":"' + self.userNameVar.get() + '", "action":"login", "data": { "password":"' + self.passNameVar.get() + '", "IP":"' + host + '"}}'
         s.sendto(str.encode( log ), server)
-        
-        # Disable register/signin buttons after logging in... should probably check that the user was actually able to login. 
+
+        # Disable register/signin buttons after logging in... should probably check that the user was actually able to login.
         self.loginButton.config(state = DISABLED)
         self.registerButton.config(state = DISABLED)
         # Destroy login window in order to go to chat window
         self.master.destroy()
         return
-        
+
 def run_login():
     root = Tk()
     loginScreen = Login(root)
     backgroundLoginImage = PhotoImage(file='Slack-logo-2.gif')
     loginScreen.mainloop()
-    
+
 def run_app():
     root = Tk()
     app = AppScreen(root)
@@ -375,10 +380,10 @@ def main():
     time.sleep(.1)
     ping = 'memes'
     s.sendto(str.encode('memes'), server)
-            
-    # Start thread for login. 
+
+    # Start thread for login.
     run_login()
-   
+
     # Now logged in. Create thread for chat.
     run_chat_thread = threading.Thread(target=run_app)
     run_chat_thread.start()
@@ -388,12 +393,12 @@ def main():
     j = '{"username":"' + alias + '", "action":"join", "data": { "chat id":"General" } }'
     s.sendto(str.encode( j ), server)
     time.sleep(.2)
-    
+
     # Send message saying that I joined default channel...
     post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"General", "message":"* Entered the chatroom *", "date/time":"'+ time.ctime(time.time()) +'"}}'
     s.sendto(str.encode( post ), server)
-    
 
-# * Main runs here *             
+
+# * Main runs here *
 if __name__ == "__main__":
     main()
