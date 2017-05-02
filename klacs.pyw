@@ -40,6 +40,7 @@ class AppScreen(Frame):
         # Initial call of functions that are called periodically to update stuff.
         self.update_channels()
         self.update_users()
+        self.request_archive()
         self.update_messages()
         return
     
@@ -118,7 +119,7 @@ class AppScreen(Frame):
         msg = self.messageEntryVar.get()
         if len(msg) > 0:
             if msg[0] != '/':
-                post = '{"username":"' + alias + '", "action":"post", "data": { "chat id":"'+current_channel[0]+'", "message":"'+ msg +'", "date/time":"'+ time.ctime(time.time()) +'"}}'
+                post = '{"username":"' + alias + '", "action":"post","data":{"chat id":"'+current_channel[0]+'","message":"'+ msg +'","date/time":"'+ time.ctime(time.time()) +'"}}'
                 s.sendto(str.encode( post ), server)
                 
             elif '/create' in msg: # /create 
@@ -132,6 +133,7 @@ class AppScreen(Frame):
                 self.chatMessages.config(state = NORMAL)
                 self.chatMessages.delete(1.0, END)
                 self.chatMessages.config(state = DISABLED)
+                self.request_archive()
   
             elif '/help' in msg:
                 pass
@@ -159,7 +161,7 @@ class AppScreen(Frame):
             self.chatMessages.delete(1.0, END)
             self.chatMessages.config(state = DISABLED)
             
-            #self.request_archive()
+            self.request_archive()
         return
     
     # This is what is updating the messages from the server. 
@@ -174,7 +176,7 @@ class AppScreen(Frame):
             dataDic = messages.json_str_to_dict(data.decode('utf-8'))
 
             if dataDic['action'] == 'post':
-                self.chatMessages.insert(END, '\n> ' + dataDic['username'] + ': ' + dataDic['message'])
+                self.chatMessages.insert(END, '> ' + dataDic['username'] + ': ' + dataDic['message'] + '\n')
 
             elif dataDic['action'] == 'request chat ids':
                 lst = dataDic['data']['response'].split(', ')
@@ -183,7 +185,7 @@ class AppScreen(Frame):
                 self.Lb.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb.insert(i, lst[i])
-                    
+            
             elif dataDic['action'] == 'request user ids':
                 lst = dataDic['data']['response'].split(', ')
                 lst = lst[:len(lst)]
@@ -191,6 +193,13 @@ class AppScreen(Frame):
                 self.Lb2.delete(0,END)
                 for i in range(len(lst)):
                     self.Lb2.insert(i, lst[i])
+                    
+            elif dataDic['action'] == 'request archive':
+                lst = dataDic['data']['response'].split('; ')
+                for item in lst:
+                    if item[0] != ' ':
+                        self.chatMessages.insert(END, '> ' + item[item.find(':',18)+2:] + '\n')
+                    
         except:
             pass
         
@@ -219,7 +228,7 @@ class AppScreen(Frame):
         
     def request_archive(self):
         #request archive
-        req_archive = '{"username":"' + alias + '", "action":"request archive", "data": {"response":""}}'
+        req_archive = '{"username":"' + alias + '", "action":"request archive", "data": {"chat id":"'+current_channel[0]+'","response":""}}'
         s.sendto(str.encode( req_archive ), server)
         return
 
