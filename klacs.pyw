@@ -128,7 +128,7 @@ class AppScreen(Frame):
             elif '/join' in msg:
                 join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+msg[6:]+'"}}'
                 s.sendto(str.encode( join_channel ), server)
-                current_channel[0] = msg[7:]
+                current_channel[0] = msg[6:]
                 self.chatMessages.config(state = NORMAL)
                 self.chatMessages.delete(1.0, END)
                 self.chatMessages.config(state = DISABLED)
