@@ -125,7 +125,7 @@ class AppScreen(Frame):
                 create_channel = '{"username":"'+alias+'", "action":"create chat", "data": {"chat id":"'+msg[8:]+'", "invite only":"false", "anonymous":"false"}}'
                 s.sendto(str.encode( create_channel ), server)
                 
-            elif '/join' in msg:
+            elif '/join' in msg and msg[6:] != current_channel[0]:
                 join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+msg[6:]+'"}}'
                 s.sendto(str.encode( join_channel ), server)
                 current_channel[0] = msg[6:]
@@ -146,7 +146,7 @@ class AppScreen(Frame):
         value = w.get(index)
         
         # Make sure this only works if they click on a channel and not an empty space.
-        if len(value) > 0:
+        if len(value) > 0 and value != current_channel[0]:
             # Send request to join channel.
             join_channel = '{"username":"'+alias+'", "action":"join", "data": {"chat id":"'+value+'"}}'
             s.sendto(str.encode( join_channel ), server)
